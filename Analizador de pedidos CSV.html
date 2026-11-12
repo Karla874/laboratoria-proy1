@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Analizador de pedidos CSV</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f7f9;--card:#fff;--tx:#1b1f27;--mu:#667085;--bd:#e3e6eb;--ac:#2f5bea;
+--ok:#12805c;--okb:#e3f5ee;--pr:#9a6700;--prb:#fff4d6;--vr:#b42318;--vrb:#fdeceb}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#14171c;--card:#1d2128;--tx:#e8eaee;--mu:#98a1b0;--bd:#2d333c;--ac:#7b9bff;--ok:#4cc79b;--okb:#13302a;--pr:#e6b84d;--prb:#33290f;--vr:#f28b82;--vrb:#3a1c1a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:22px;margin:0 0 4px}.sub{color:var(--mu);margin:0 0 20px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px}
+.drop{border:2px dashed var(--bd);text-align:center;padding:28px 16px;cursor:pointer;transition:.15s}
+.drop.over{border-color:var(--ac);background:var(--bg)}
+button{font:inherit;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:7px 14px;border-radius:8px;cursor:pointer}
+button.p{background:var(--ac);border-color:var(--ac);color:#fff}
+button:hover{filter:brightness(.96)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:20px 0}
+.kpi .n{font-size:28px;font-weight:700;line-height:1.1}.kpi .l{color:var(--mu);font-size:13px}
+.kpi.ok .n{color:var(--ok)}.kpi.pr .n{color:var(--pr)}.kpi.vr .n{color:var(--vr)}
+.bar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--bd);margin:8px 0 0}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 16px}
+.tools input[type=search]{flex:1;min-width:180px;font:inherit;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--tx)}
+.chip{border-radius:999px;padding:5px 12px}.chip.on{background:var(--ac);border-color:var(--ac);color:#fff}
+details{margin-bottom:12px}
+summary{cursor:pointer;font-weight:600;padding:12px 16px;display:flex;justify-content:space-between;gap:8px;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary .c{color:var(--mu);font-weight:400;font-size:13px}
+.tw{overflow-x:auto;border-top:1px solid var(--bd)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--bd);vertical-align:top}
+th{color:var(--mu);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+td.w{white-space:normal;min-width:180px}td.r,th.r{text-align:right}
+.b{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}
+.b.ok{background:var(--okb);color:var(--ok)}.b.pr{background:var(--prb);color:var(--pr)}.b.vr{background:var(--vrb);color:var(--vr)}
+.al{color:var(--vr);font-size:12.5px}
+tr.cf td{background:var(--vrb)}tr.cf td:first-child{box-shadow:inset 4px 0 0 var(--vr)}
+tr.cn td{background:var(--prb)}tr.cn td:first-child{box-shadow:inset 4px 0 0 var(--pr)}
+.b.wn{background:var(--prb);color:var(--pr);border:1px solid var(--pr);margin-top:4px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.rw{cursor:pointer}.rw:hover td{filter:brightness(.97)}
+.ic{width:60px;white-space:nowrap}.wi{display:inline-block;width:22px;font-size:15px}
+tr.cf .wi{color:var(--vr)}tr.cn .wi{color:var(--pr)}
+.ch{display:inline-block;color:var(--mu);transition:transform .15s}.rw.open .ch{transform:rotate(90deg)}
+.dt td{background:var(--bg)}
+.dg{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px 20px;padding:4px 0}
+.dg b{display:block;color:var(--mu);font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;font-weight:600}
+.dg .full{grid-column:1/-1}
+.act{font-weight:600}
+textarea{width:100%;height:160px;font:12px monospace;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px}
+.hide{display:none}.note{color:var(--mu);font-size:13px}
+h2{font-size:16px;margin:24px 0 8px}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><h1>Analizador de pedidos</h1><button id="theme">🌙 Modo oscuro</button></div>
+<p class="sub">Sube un CSV de pedidos: se normaliza, clasifica y entrega con la acción requerida por pedido.</p>
+
+<div class="card drop" id="drop">
+  <div><strong>Arrastra tu archivo CSV aquí</strong> o haz clic para seleccionarlo</div>
+  <div class="note" style="margin:6px 0 12px">Separadores admitidos: coma, punto y coma, tabulación</div>
+  <button class="p" id="pick">Seleccionar archivo</button>
+  <button id="demo">Probar con datos de ejemplo</button>
+  <input type="file" id="file" accept=".csv,.txt,text/csv" class="hide">
+</div>
+<div id="err" class="al" style="margin-top:8px"></div>
+
+<div id="out" class="hide">
+  <h2>Resumen ejecutivo</h2>
+  <div class="kpis" id="kpis"></div>
+  <div class="card" id="alerts"></div>
+
+  <h2>Pedidos por categoría</h2>
+  <div class="tools">
+    <input type="search" id="q" placeholder="Buscar por cliente, producto, ID o acción…">
+    <span id="chips"></span>
+    <button id="exp">Copiar CSV limpio</button>
+  </div>
+  <div id="expbox" class="hide card" style="margin-bottom:12px">
+    <div class="note" style="margin-bottom:6px">Copia este contenido y pégalo en Excel, Google Sheets o un archivo .csv.</div>
+    <textarea id="ta" readonly></textarea>
+  </div>
+  <div id="cats"></div>
+</div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const strip=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+const title=s=>s.toLowerCase().replace(/(^|[\s\-'’])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase());
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ST={ok:'Completos',pr:'En proceso',vr:'Por verificar'};
+const ORDER={vr:0,pr:1,ok:2};
+let ROWS=[],FILTER='all',CHANGES=0;
+
+/* ---------- CSV parsing ---------- */
+function parseCSV(t){
+  t=t.replace(/^\uFEFF/,'');
+  const first=t.split(/\r?\n/)[0]||'';
+  const d=[',',';','\t'].map(c=>[c,first.split(c).length]).sort((a,b)=>b[1]-a[1])[0][0];
+  const rows=[];let r=[],f='',q=false;
+  for(let i=0;i<t.length;i++){const c=t[i];
+    if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+    else if(c==='"')q=true;
+    else if(c===d){r.push(f);f=''}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;r.push(f);rows.push(r);r=[];f=''}
+    else f+=c}
+  if(f!==''||r.length){r.push(f);rows.push(r)}
+  return rows.filter(x=>x.some(v=>v.trim()!==''));
+}
+const SYN={id:['pedido','id','n pedido','numero pedido','order','order id','nro pedido','id pedido','codigo'],
+ cliente:['cliente','nombre','nombre cliente','customer','comprador'],email:['email','correo','mail','e mail','correo electronico'],
+ cat:['categoria','categorias','category','rubro','tipo'],prod:['producto','articulo','item','product','descripcion'],
+ qty:['cantidad','cant','qty','unidades'],price:['monto us','monto usd','monto us$','us','usd','monto','precio','precio unitario','valor','price','total'],
+ date:['fecha','fecha pedido','date','fecha de pedido'],status:['estado','status','situacion'],stock:['stock','inventario','existencias'],
+ notas:['notas','nota','observaciones','observacion','comentarios','comentario','notes','obs','detalle']};
+function mapHeaders(h){const m={};h.forEach((x,i)=>{const k=strip(x);for(const f in SYN)if(!(f in m)&&SYN[f].includes(k))m[f]=i});return m}
+
+/* ---------- normalization ---------- */
+function lev(a,b){if(Math.abs(a.length-b.length)>1)return 9;const d=[];for(let i=0;i<=a.length;i++){d[i]=[i];for(let j=1;j<=b.length;j++)d[i][j]=i?0:j}
+ for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[a.length][b.length]}
+function num(v){if(v==null)return NaN;let s=String(v).replace(/[^\d,.\-]/g,'');if(!s)return NaN;
+ if(s.includes(',')&&s.includes('.'))s=s.lastIndexOf(',')>s.lastIndexOf('.')?s.replace(/\./g,'').replace(',','.'):s.replace(/,/g,'');
+ else if(s.includes(','))s=/,\d{1,2}$/.test(s)?s.replace(',','.'):s.replace(/,/g,'');
+ else if(/\.\d{3}($|\.)/.test(s)&&(s.match(/\./g)||[]).length>1)s=s.replace(/\./g,'');
+ return parseFloat(s)}
+function date(v){const s=String(v||'').trim();if(!s)return{iso:'',bad:false};let y,m,d,x;
+ if(x=s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/)){y=+x[1];m=+x[2];d=+x[3]}
+ else if(x=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/)){d=+x[1];m=+x[2];y=+x[3];if(y<100)y+=2000}
+ else return{iso:'',bad:true};
+ const dt=new Date(Date.UTC(y,m-1,d));if(dt.getUTCMonth()!==m-1||dt.getUTCDate()!==d)return{iso:'',bad:true};
+ return{iso:`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,bad:false}}
+function statusOf(v){const s=strip(v);if(!s)return'';
+ if(/(complet|entreg|finaliz|cerrad|listo|despachad)/.test(s))return'done';
+ if(/(cancel|anulad|devuel)/.test(s))return'cancel';
+ if(/(pend)/.test(s))return'pend';
+ if(/(envi|camino|transito|ruta)/.test(s))return'ship';
+ if(/(proces|prepar|curso|activ|pago|prod)/.test(s))return'proc';return'?'}
+const SLAB={done:'Completado',cancel:'Cancelado',pend:'Pendiente',ship:'Enviado',proc:'En proceso','?':'Desconocido','':'(vacío)'};
+
+/* Reglas de auditoría sobre la columna Notas (por orden de prioridad de acción) */
+const NR=[
+ {k:'pay',re:/pendiente de pago|pago pendiente|pago rechazado|sin pago|falta (el )?pago|no (se )?(ha )?(recibid\w* )?(el )?pago/,msg:'Pago pendiente o rechazado',act:'Confirmar pago con cliente'},
+ {k:'lost',re:/\bno\b[a-z ]{0,20}\b(recib|llego|llegaron|entreg)|sin recibir|extravi|perdid|no entregad/,msg:'Cliente reporta no haber recibido el pedido',act:'Investigar entrega con courier / Contactar cliente'},
+ {k:'dmg',re:/danad|defectuos|roto|quebrad|incompleto|equivocad|incorrect|producto errone/,msg:'Producto dañado, incompleto o incorrecto',act:'Gestionar cambio o reclamo con cliente'},
+ {k:'claim',re:/reclamo|queja|devolucion|devolver|reembolso/,msg:'Reclamo o devolución del cliente',act:'Gestionar reclamo / Contactar cliente'},
+ {k:'stock',re:/sin stock|quiebre|agotad|falta de stock|stock insuficiente/,msg:'Problema de stock',act:'Actualizar stock'},
+ {k:'prep',re:/en preparacion|preparando|por preparar|en bodega|pendiente de (envio|despacho)|por despachar|sin despachar/,msg:'Nota indica pedido aún en preparación',act:'Confirmar estado real y despachar'},
+ {k:'gen',re:/\b(error\w*|fallo|fallido|problema\w*|incidencia\w*|inconsisten\w*|duplicad\w*|urgente|bloquead\w*|retenid\w*|aduana|revisar)\b/,msg:'Nota reporta error o incidencia',act:'Revisar y corregir según nota'}];
+function noteHits(txt){
+ const s=strip(txt).replace(/\b(sin|no hay|ningun|ninguna) (problemas?|errores?|novedad\w*|incidencias?|reclamos?|observaciones?|pendientes?)\b/g,'');
+ return s?NR.filter(r=>r.re.test(s)):[];
+}
+function analyze(text){
+  const t=parseCSV(text);if(t.length<2)throw new Error('El archivo no tiene filas de datos.');
+  const m=mapHeaders(t[0]);
+  if(!('id' in m)&&!('cliente' in m)&&!('cat' in m))throw new Error('No se reconocieron encabezados (se esperan columnas como Pedido, Cliente, Categoría, Fecha, Estado…).');
+  const g=(r,k)=>k in m?(r[m[k]]||'').trim():'';
+  CHANGES=0;
+  const raw=t.slice(1).map((r,i)=>({n:i+2,id:g(r,'id'),cliente:g(r,'cliente'),email:g(r,'email'),cat:g(r,'cat'),prod:g(r,'prod'),qty:g(r,'qty'),price:g(r,'price'),date:g(r,'date'),status:g(r,'status'),stock:g(r,'stock'),notas:g(r,'notas')}));
+  // categories
+  const freq={};raw.forEach(r=>{const k=strip(r.cat);if(!k)return;(freq[k]=freq[k]||{n:0,v:{}});freq[k].n++;freq[k].v[r.cat.trim()]=(freq[k].v[r.cat.trim()]||0)+1});
+  const keys=Object.keys(freq).sort((a,b)=>freq[b].n-freq[a].n),canon={};
+  keys.forEach(k=>{const hit=keys.find(c=>canon[c]===c&&c!==k&&k.length>4&&lev(c,k)<=1);canon[k]=hit||k});
+  const label={};keys.forEach(k=>{const c=canon[k];if(!label[c]){const all={};keys.filter(x=>canon[x]===c).forEach(x=>Object.entries(freq[x].v).forEach(([v,n])=>all[v]=(all[v]||0)+n));label[c]=title(strip(Object.entries(all).sort((a,b)=>b[1]-a[1])[0][0]).replace(/^./,x=>x))}});
+  const catName=s=>{const k=strip(s);return k?title(label[canon[k]]):'Sin categoría'};
+  const idCount={};raw.forEach(r=>{if(r.id)idCount[r.id.toUpperCase()]=(idCount[r.id.toUpperCase()]||0)+1});
+  const today=new Date().toISOString().slice(0,10);
+  ROWS=raw.map(r=>{
+    const o={n:r.n},issues=[];let act=null;
+    const chg=(a,b)=>{if(a!==b)CHANGES++;return b};
+    o.id=r.id.toUpperCase().replace(/\s+/g,'');CHANGES+=o.id!==r.id?1:0;
+    o.cliente=chg(r.cliente,title(r.cliente.replace(/\s+/g,' ')));
+    o.email=chg(r.email,r.email.toLowerCase().replace(/\s/g,''));
+    o.cat=chg(r.cat,catName(r.cat));
+    o.prod=chg(r.prod,title(r.prod.replace(/\s+/g,' ')));
+    const q=num(r.qty),p=num(r.price);o.qty=q;o.price=p;
+    const d=date(r.date);o.date=d.iso;if(d.iso&&d.iso!==r.date)CHANGES++;
+    const s=statusOf(r.status);o.sl=SLAB[s];if(s&&s!=='?'&&SLAB[s]!==r.status)CHANGES++;
+    const add=(msg,a)=>{issues.push(msg);if(!act)act=a};
+    // 1) Las notas se evalúan primero: son información más específica (alerta de auditoría)
+    const nh=noteHits(r.notas);o.notas=r.notas.replace(/\s+/g,' ').trim();o.crit=nh.length>0;
+    o.conflict=nh.length>0&&(s==='done'||(s==='ship'&&nh.some(h=>h.k==='prep')));
+    nh.forEach(h=>add('Nota: '+h.msg,h.act));
+    if(o.conflict)add('Conflicto: estado «'+SLAB[s]+'» contradice la nota','Verificar estado real del pedido');
+    if(!o.id)add('Falta ID de pedido','Completar datos del pedido');
+    else if(idCount[o.id]>1)add('ID duplicado','Revisar duplicado');
+    if('cliente' in m&&!o.cliente)add('Falta cliente','Contactar cliente');
+    if(o.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(o.email))add('Email inválido','Contactar cliente');
+    if('cat' in m&&!r.cat)add('Falta categoría','Completar datos del pedido');
+    if('prod' in m&&!o.prod)add('Falta producto','Completar datos del pedido');
+    
+    if('price' in m&&(isNaN(p)||p<0))add(isNaN(p)?'Falta monto US':'Monto US inválido','Completar datos del pedido');
+    if('date' in m){if(!r.date)add('Falta fecha','Confirmar fecha');else if(d.bad)add('Fecha ilegible','Confirmar fecha');else if(d.iso>today)add('Fecha futura','Confirmar fecha')}
+    
+    if(s==='')add('Estado vacío','Confirmar estado');else if(s==='?')add('Estado no reconocido','Confirmar estado');else if(s==='cancel')add('Pedido cancelado','Confirmar cancelación');
+    o.issues=issues;
+    if(issues.length){o.state='vr';o.act=act}
+    else if(s==='done'){o.state='ok';o.act='Ninguna'}
+    else{o.state='pr';o.act=s==='ship'?'Dar seguimiento al envío':s==='pend'?'Confirmar pago y preparar':'Dar seguimiento al pedido'}
+    o.total=p;
+    return o});
+}
+
+/* ---------- rendering ---------- */
+const fmt=n=>isNaN(n)?'—':n.toLocaleString('es-CL',{maximumFractionDigits:2});
+function render(){
+  $('out').classList.remove('hide');
+  const c={ok:0,pr:0,vr:0};ROWS.forEach(r=>c[r.state]++);
+  const cfl=ROWS.filter(r=>r.conflict).length,crit=ROWS.filter(r=>r.crit).length,tot=ROWS.length,alerts=ROWS.reduce((a,r)=>a+r.issues.length,0),amt=ROWS.reduce((a,r)=>a+(isNaN(r.total)?0:r.total),0);
+  const pct=k=>tot?c[k]/tot*100:0;
+  $('kpis').innerHTML=`<div class="card kpi"><div class="n">${tot}</div><div class="l">Total de pedidos</div></div>
+  <div class="card kpi pr"><div class="n">${c.pr}</div><div class="l">En proceso</div></div>
+  <div class="card kpi vr"><div class="n">${c.vr}</div><div class="l">Por verificar</div></div>
+  <div class="card kpi ok"><div class="n">${c.ok}</div><div class="l">Completos</div></div>
+  <div class="card kpi vr"><div class="n">${cfl}</div><div class="l">Conflictos estado/nota (${crit} con nota crítica)</div></div>
+  <div class="card kpi"><div class="n">US$ ${fmt(amt)}</div><div class="l">Monto total</div></div>`;
+  const byIssue={};ROWS.forEach(r=>r.issues.forEach(i=>{const k=i.replace(/\(.*\)/,'').trim();byIssue[k]=(byIssue[k]||0)+1}));
+  const list=Object.entries(byIssue).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<span class="b vr" style="margin:2px 4px 2px 0">${esc(k)}: ${n}</span>`).join('');
+  $('alerts').innerHTML=`<div><strong>${alerts}</strong> alerta${alerts===1?'':'s'} de inconsistencia en <strong>${c.vr}</strong> pedido${c.vr===1?'':'s'} · <strong>${CHANGES}</strong> correcciones de formato aplicadas automáticamente</div>
+  <div style="margin-top:8px">${list||'<span class="note">Sin inconsistencias detectadas.</span>'}</div>
+  <div class="bar"><span style="width:${pct('pr')}%;background:var(--pr)"></span><span style="width:${pct('vr')}%;background:var(--vr)"></span><span style="width:${pct('ok')}%;background:var(--ok)"></span></div>`;
+  $('chips').innerHTML=[['all','Todos'],['pr','En proceso'],['vr','Por verificar'],['ok','Completos'],['cf','⚠ Notas críticas']].map(([k,l])=>`<button class="chip ${FILTER===k?'on':''}" data-f="${k}">${l}</button>`).join(' ');
+  list_();
+}
+function list_(){
+  const q=strip($('q').value);
+  const rows=ROWS.filter(r=>(FILTER==='all'||(FILTER==='cf'?r.crit:r.state===FILTER))&&(!q||strip([r.id,r.cliente,r.prod,r.cat,r.act,r.issues.join(' ')].join(' ')).includes(q)));
+  const cats={};rows.forEach(r=>(cats[r.cat]=cats[r.cat]||[]).push(r));
+  const names=Object.keys(cats).sort((a,b)=>a==='Sin categoría'?1:b==='Sin categoría'?-1:a.localeCompare(b,'es'));
+  if(!names.length){$('cats').innerHTML='<div class="card note">Ningún pedido coincide con el filtro.</div>';return}
+  $('cats').innerHTML=names.map(n=>{
+    const rs=cats[n].sort((a,b)=>(+b.conflict-+a.conflict)||(+b.crit-+a.crit)||ORDER[a.state]-ORDER[b.state]||(a.date||'9').localeCompare(b.date||'9')||a.id.localeCompare(b.id));
+    const cnt=k=>rs.filter(r=>r.state===k).length;
+    return `<details class="card" style="padding:0" open><summary><span>${esc(n)}</span><span class="c">${rs.length} pedido${rs.length===1?'':'s'} · ${cnt('pr')} en proceso · ${cnt('vr')} por verificar · ${cnt('ok')} completos</span></summary>
+    <div class="tw"><table><thead><tr><th></th><th>Pedido</th><th>Cliente</th><th>Producto</th><th class="r">Monto US</th><th>Estado</th><th>Acción requerida</th></tr></thead><tbody>`+
+    rs.map(r=>`<tr class="rw ${r.conflict?'cf':r.crit?'cn':''}"><td class="ic"><span class="wi" title="${r.conflict?'Conflicto estado/nota':'Nota crítica'}">${r.crit?'⚠':''}</span><span class="ch">▸</span></td><td>${esc(r.id||'—')}</td><td>${esc(r.cliente||'—')}</td><td>${esc(r.prod||'—')}</td><td class="r">${isNaN(r.price)?'—':'US$ '+fmt(r.price)}</td><td><span class="b ${r.state}">${ST[r.state]}</span>${r.conflict?'<br><span class="b wn">⚠ Conflicto estado/nota</span><div class="note">Estado original: '+esc(r.sl)+'</div>':r.crit?'<br><span class="b wn">⚠ Nota crítica</span>':''}</td><td class="act">${esc(r.act)}</td></tr><tr class="dt hide"><td></td><td colspan="6"><div class="dg"><div><b>Cliente</b>${esc(r.cliente||'—')}</div><div><b>Email</b>${esc(r.email||'—')}</div><div><b>Fecha</b>${r.date||'—'}</div><div><b>Estado informado</b>${esc(r.sl)}</div><div class="full"><b>Nota original</b>${esc(r.notas||'—')}</div><div class="full"><b>Observaciones</b><span class="${r.issues.length?'al':'note'}">${esc(r.issues.join(' · ')||'Sin alertas')}</span></div></div></td></tr>`).join('')+`</tbody></table></div></details>`}).join('');
+}
+function toCSV(){
+  const h=['Pedido','Cliente','Email','Categoría','Producto','Monto US','Fecha','Estado original normalizado','Estado clasificado','Acción requerida','Nota original','Conflicto estado/nota','Observaciones'];
+  const q=v=>{v=String(v??'');return /[",\n;]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const rs=[...ROWS].sort((a,b)=>a.cat.localeCompare(b.cat,'es')||ORDER[a.state]-ORDER[b.state]);
+  return [h.join(',')].concat(rs.map(r=>[r.id,r.cliente,r.email,r.cat,r.prod,isNaN(r.price)?'':r.price,r.date,r.sl,ST[r.state],r.act,r.notas||'',r.conflict?'Sí':'',r.issues.join(' | ')].map(q).join(','))).join('\n');
+}
+
+/* ---------- events ---------- */
+function run(text){$('err').textContent='';try{analyze(text);FILTER='all';$('q').value='';$('expbox').classList.add('hide');render()}catch(e){$('err').textContent=e.message;$('out').classList.add('hide')}}
+$('pick').onclick=e=>{e.stopPropagation();$('file').click()};
+$('drop').onclick=()=>$('file').click();
+$('file').onchange=e=>{const f=e.target.files[0];if(f)f.text().then(run)};
+['dragover','dragenter'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.add('over')}));
+['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.remove('over')}));
+$('drop').addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)f.text().then(run)});
+$('demo').onclick=e=>{e.stopPropagation();run(DEMO)};
+$('q').oninput=list_;
+$('cats').onclick=e=>{const tr=e.target.closest('tr.rw');if(!tr)return;tr.classList.toggle('open');tr.nextElementSibling.classList.toggle('hide')};
+$('theme').onclick=()=>{const d=document.documentElement,dark=d.dataset.theme==='dark';d.dataset.theme=dark?'light':'dark';$('theme').textContent=dark?'🌙 Modo oscuro':'☀️ Modo claro'};
+$('chips').onclick=e=>{const f=e.target.dataset.f;if(f){FILTER=f;render()}};
+$('exp').onclick=async()=>{const t=toCSV();$('ta').value=t;$('expbox').classList.remove('hide');
+  try{await navigator.clipboard.writeText(t);$('exp').textContent='Copiado ✓'}catch(_){$('ta').select();try{document.execCommand('copy');$('exp').textContent='Copiado ✓'}catch(__){}}
+  setTimeout(()=>$('exp').textContent='Copiar CSV limpio',2000)};
+
+const DEMO=`Pedido;Cliente;Email;Categoría;Producto;Cantidad;Monto US;Fecha;Estado;Stock;Notas
+a-1001;  juan PÉREZ ;juan@mail.com;Electrónica;audífonos bluetooth;2;24.990;05/10/2026;Entregado;40;En preparación. Cliente reporta no haberlo recibido
+A-1002;maría gonzález;MARIA@MAIL.COM;electronica;Teclado mecánico;1;45.000;2026-10-07;en proceso;12;Pendiente de pago, transferencia no confirmada
+A-1003;Pedro   Soto;pedro@mail;ELECTRONICA ;Mouse inalámbrico;3;12.500;08-10-2026;Pendiente;50
+A-1004;;ana@mail.com;Hogar;Lámpara LED;1;15.990;10/10/2026;enviado;8
+A-1005;Luis Rojas;luis@mail.com;hogar;Silla de oficina;0;89.990;12/10/2026;Completado;5
+A-1006;carla díaz;carla@mail.com;Hogar ;Mesa de centro;1;;14/10/2026;Entregado;3
+A-1007;Diego Muñoz;diego@mail.com;Deportes;Pelota de fútbol;4;9.990;31/02/2026;pendiente;30
+A-1008;Sofía Vera;sofia@mail.com;deportes;Zapatillas running;2;59.990;20/10/2026;Finalizado;10
+A-1008;Sofía Vera;sofia@mail.com;Deportes;Zapatillas running;2;59.990;20/10/2026;Finalizado;10
+A-1009;Camila Ríos;camila@mail.com;Ropa;Chaqueta impermeable;1;49.990;22/10/2026;cancelado;7
+A-1010;Tomás Gil;tomas@mail.com;Ropa;Polera algodón;6;7.990;25/10/26;preparando;4;Sin problemas, cliente avisado
+A-1011;Elena Paz;elena@mail.com;Ropa;Jeans;2;29.990;01/01/2030;En proceso;20
+A-1012;Raúl Mora;raul@mail.com;Electrónica;Cargador USB-C;5;11.990;29/10/2026;entregado;100;Cliente indica que llegó dañado
+A-1013;Inés Cruz;ines@mail.com;;Cojín decorativo;2;6.990;30/10/2026;enviado;15
+A-1014;Marcos Lira;marcos@mail.com;Electrónica;Smartwatch;1;79.990;02/11/2026;esperando;9`;
+</script>
+</body>
+</html>
